@@ -68,7 +68,13 @@ export class NodeCache {
    */
   getProperty(node: any, key: string): any {
     const nodeCache = this._propertyCache.get(node)
-    return nodeCache ? nodeCache.get(key) : undefined
+    if (nodeCache) {
+      // touch entry for simple LRU behavior
+      this._propertyCache.delete(node)
+      this._propertyCache.set(node, nodeCache)
+      return nodeCache.get(key)
+    }
+    return undefined
   }
 
   /**
@@ -106,7 +112,13 @@ export class NodeCache {
    * Get cached traversal result
    */
   getTraversal(node: any): any[] | undefined {
-    return this._traversalCache.get(node)
+    const v = this._traversalCache.get(node)
+    if (v !== undefined) {
+      // touch
+      this._traversalCache.delete(node)
+      this._traversalCache.set(node, v)
+    }
+    return v
   }
 
   /**
@@ -117,6 +129,8 @@ export class NodeCache {
       const firstKey = this._traversalCache.keys().next().value
       this._traversalCache.delete(firstKey)
     }
+    // touch set
+    if (this._traversalCache.has(node)) this._traversalCache.delete(node)
     this._traversalCache.set(node, result)
   }
 
@@ -152,7 +166,13 @@ export class AttributeCache {
    */
   get(element: any, name: string): any {
     const elemCache = this._cache.get(element)
-    return elemCache ? elemCache.get(name) : undefined
+    if (elemCache) {
+      // touch
+      this._cache.delete(element)
+      this._cache.set(element, elemCache)
+      return elemCache.get(name)
+    }
+    return undefined
   }
 
   /**
