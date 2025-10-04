@@ -1,7 +1,7 @@
 import { dom } from "../dom/DOMImpl"
 import { Attr, Element, Document, Node } from "../dom/interfaces"
 import { namespace as infraNamespace } from "@oozcitak/infra"
-import { Guard } from "../util"
+import { Guard, attributeCache } from "../util"
 import { SyntaxError, InUseAttributeError, NotSupportedError } from "../dom/DOMException"
 import {
   create_attr, create_element, create_htmlUnknownElement, create_htmlElement
@@ -63,9 +63,9 @@ export function element_change(attribute: Attr, element: Element, value: string)
   }
 
   /**
-   * 3. Run the attribute change steps with element, attribute’s local name,
-   * attribute’s value, value, and attribute’s namespace.
-   * 4. Set attribute’s value to value.
+   * 3. Run the attribute change steps with element, attribute's local name,
+   * attribute's value, value, and attribute's namespace.
+   * 4. Set attribute's value to value.
    */
   if (dom.features.steps) {
     dom_runAttributeChangeSteps(element, attribute._localName,
@@ -73,6 +73,9 @@ export function element_change(attribute: Attr, element: Element, value: string)
   }
 
   attribute._value = value
+
+  // Invalidate attribute cache
+  attributeCache.invalidate(element, attribute._qualifiedName)
 }
 
 /**
@@ -115,8 +118,8 @@ export function element_append(attribute: Attr, element: Element): void {
   }
 
   /**
-   * 4. Append attribute to element’s attribute list.
-   * 5. Set attribute’s element to element.
+   * 4. Append attribute to element's attribute list.
+   * 5. Set attribute's element to element.
    */
   element._attributeList._asArray().push(attribute)
   attribute._element = element
@@ -126,6 +129,9 @@ export function element_append(attribute: Attr, element: Element): void {
     attribute._namespacePrefix !== null || attribute._localName === "xmlns")) {
     element._nodeDocument._hasNamespaces = true
   }
+
+  // Invalidate attribute cache
+  attributeCache.invalidate(element, attribute._qualifiedName)
 }
 
 /**
@@ -168,12 +174,15 @@ export function element_remove(attribute: Attr, element: Element): void {
   }
 
   /**
-   * 3. Remove attribute from element’s attribute list.
-   * 5. Set attribute’s element to null.
+   * 3. Remove attribute from element's attribute list.
+   * 5. Set attribute's element to null.
    */
   const index = element._attributeList._asArray().indexOf(attribute)
   element._attributeList._asArray().splice(index, 1)
   attribute._element = null
+
+  // Invalidate attribute cache
+  attributeCache.invalidate(element, attribute._qualifiedName)
 }
 
 /**
@@ -218,9 +227,9 @@ export function element_replace(oldAttr: Attr, newAttr: Attr,
   }
 
   /**
-   * 4. Replace oldAttr by newAttr in element’s attribute list.
-   * 5. Set oldAttr’s element to null.
-   * 6. Set newAttr’s element to element.
+   * 4. Replace oldAttr by newAttr in element's attribute list.
+   * 5. Set oldAttr's element to null.
+   * 6. Set newAttr's element to element.
    */
   const index = element._attributeList._asArray().indexOf(oldAttr)
   if (index !== -1) {
@@ -234,6 +243,10 @@ export function element_replace(oldAttr: Attr, newAttr: Attr,
     newAttr._namespacePrefix !== null || newAttr._localName === "xmlns")) {
     element._nodeDocument._hasNamespaces = true
   }
+
+  // Invalidate attribute cache
+  attributeCache.invalidate(element, oldAttr._qualifiedName)
+  attributeCache.invalidate(element, newAttr._qualifiedName)
 }
 
 /**

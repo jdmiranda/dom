@@ -23,6 +23,7 @@ import {
   node_listOfElementsWithQualifiedName
 } from "../algorithm"
 import { idl_defineConst } from "../algorithm/WebIDLAlgorithm"
+import { attributeCache } from "../util"
 
 /**
  * Represents an element node.
@@ -129,12 +130,22 @@ export class ElementImpl extends NodeImpl implements Element {
   /** @inheritdoc */
   getAttribute(qualifiedName: string): string | null {
     /**
-     * 1. Let attr be the result of getting an attribute given qualifiedName 
+     * 1. Let attr be the result of getting an attribute given qualifiedName
      * and the context object.
      * 2. If attr is null, return null.
-     * 3. Return attr’s value.
+     * 3. Return attr's value.
      */
+    // Fast-path: check cache first
+    const cached = attributeCache.get(this, qualifiedName)
+    if (cached !== undefined) {
+      return cached ? cached._value : null
+    }
+
     const attr = element_getAnAttributeByName(qualifiedName, this)
+
+    // Cache the result
+    attributeCache.set(this, qualifiedName, attr)
+
     return (attr ? attr._value : null)
   }
 
@@ -183,14 +194,16 @@ export class ElementImpl extends NodeImpl implements Element {
 
     /**
      * 4. If attribute is null, create an attribute whose local name is
-     * qualifiedName, value is value, and node document is context object’s 
-     * node document, then append this attribute to context object, and 
+     * qualifiedName, value is value, and node document is context object's
+     * node document, then append this attribute to context object, and
      * then return.
      */
     if (attribute === null) {
       attribute = create_attr(this._nodeDocument, qualifiedName)
       attribute._value = value
       element_append(attribute, this)
+      // Invalidate cache
+      attributeCache.invalidate(this, qualifiedName)
       return
     }
 
@@ -198,6 +211,8 @@ export class ElementImpl extends NodeImpl implements Element {
      * 5. Change attribute from context object to value.
      */
     element_change(attribute, this, value)
+    // Invalidate cache
+    attributeCache.invalidate(this, qualifiedName)
   }
 
   /** @inheritdoc */
