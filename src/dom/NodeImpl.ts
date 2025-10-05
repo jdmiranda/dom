@@ -5,7 +5,7 @@ import {
   Event, EventTarget
 } from "./interfaces"
 import { EventTargetImpl } from "./EventTargetImpl"
-import { Guard, EmptySet } from "../util"
+import { Guard, EmptySet, nodeCache } from "../util"
 import { NotSupportedError } from "./DOMException"
 import {
   tree_rootNode, tree_nodeLength, tree_index,
@@ -300,18 +300,27 @@ export abstract class NodeImpl extends EventTargetImpl implements Node {
     }
   }
 
-  /** 
+  /**
    * Returns the concatenation of data of all the {@link Text}
-   * node descendants in tree order. When set, replaces the text 
-   * contents of the node with the given value. 
+   * node descendants in tree order. When set, replaces the text
+   * contents of the node with the given value.
    */
   get textContent(): string | null {
-    if (Guard.isDocumentFragmentNode(this) || Guard.isElementNode(this)) {
-      return text_descendantTextContent(this)
-    } else if (Guard.isAttrNode(this)) {
+    // Fast-path for common node types
+    if (Guard.isAttrNode(this)) {
       return this._value
     } else if (Guard.isCharacterDataNode(this)) {
       return this._data
+    } else if (Guard.isDocumentFragmentNode(this) || Guard.isElementNode(this)) {
+      // Check cache for textContent
+      const cached = nodeCache.getProperty(this, 'textContent')
+      if (cached !== undefined) {
+        return cached
+      }
+      const result = text_descendantTextContent(this)
+      // Cache the result
+      nodeCache.setProperty(this, 'textContent', result)
+      return result
     } else {
       return null
     }
@@ -320,6 +329,8 @@ export abstract class NodeImpl extends EventTargetImpl implements Node {
     if (value === null) { value = '' }
     if (Guard.isDocumentFragmentNode(this) || Guard.isElementNode(this)) {
       node_stringReplaceAll(value, this)
+      // Invalidate cache on mutation
+      nodeCache.invalidateProperty(this, 'textContent')
     } else if (Guard.isAttrNode(this)) {
       attr_setAnExistingAttributeValue(this, value)
     } else if (Guard.isCharacterDataNode(this)) {
